@@ -57,4 +57,29 @@ class My_Document implements WP_DocGen_Provider {
 // Generate document
 $provider = new My_Document();
 $result = wp_docgen()->generate($provider);
+```
 
+Custom Fields
+Template dapat menggunakan fields:
+
+Date: ${date:Y-m-d}
+User: ${user:display_name}
+Image: ${image:/path/img.jpg:100:100}
+Site: ${site:name}
+QR code: ${qrcode:text:100}
+
+Format khusus:
+
+Money: ${money:1000000:Rp}
+Terbilang: ${terbilang:1000000}
+Tanggal: ${tanggal:2024-01-01:j F Y}
+Gelar: ${gelar:Budi:Dr.|S.Kom}
+
+Contributing
+Pull requests welcome. For major changes, please open issue first.
+License
+GPL v2 or later
+Credits
+
+PHPWord
+PHPQRCode

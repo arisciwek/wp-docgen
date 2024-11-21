@@ -76,12 +76,12 @@ Tanggal: ${tanggal:2024-01-01:j F Y}
 Gelar: ${gelar:Budi:Dr.|S.Kom}
 
 Contributing
-Pull requests welcome. For major changes, please open issue first.
+- Pull requests welcome. For major changes, please open issue first.
 
 License:
+
 GPL v2 or later
 
 Credits:
-
-PHPWord
-PHPQRCode
+- PHPWord
+- PHPQRCode

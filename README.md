@@ -59,29 +59,26 @@ $provider = new My_Document();
 $result = wp_docgen()->generate($provider);
 ```
 
-Custom Fields
+### Custom Fields:
 Template dapat menggunakan fields:
+- Date: ${date:Y-m-d}
+- User: ${user:display_name}
+- Image: ${image:/path/img.jpg:100:100}
+- Site: ${site:name}
+- QR code: ${qrcode:text:100}
 
-Date: ${date:Y-m-d}
-User: ${user:display_name}
-Image: ${image:/path/img.jpg:100:100}
-Site: ${site:name}
-QR code: ${qrcode:text:100}
+### Format khusus:
+- Money: ${money:1000000:Rp}
+- Terbilang: ${terbilang:1000000}
+- Tanggal: ${tanggal:2024-01-01:j F Y}
+- Gelar: ${gelar:Budi:Dr.|S.Kom}
 
-Format khusus:
-
-Money: ${money:1000000:Rp}
-Terbilang: ${terbilang:1000000}
-Tanggal: ${tanggal:2024-01-01:j F Y}
-Gelar: ${gelar:Budi:Dr.|S.Kom}
-
-Contributing
+### Contributing
 - Pull requests welcome. For major changes, please open issue first.
 
-License:
-
+### License:
 GPL v2 or later
 
-Credits:
+### Credits:
 - PHPWord
 - PHPQRCode

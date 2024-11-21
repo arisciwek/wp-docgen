@@ -77,8 +77,10 @@ Gelar: ${gelar:Budi:Dr.|S.Kom}
 
 Contributing
 Pull requests welcome. For major changes, please open issue first.
+
 License
 GPL v2 or later
+
 Credits
 
 PHPWord

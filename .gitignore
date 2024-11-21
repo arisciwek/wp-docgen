@@ -29,6 +29,10 @@ wp-config.php
 # Uploads
 /wp-content/uploads/
 
+# libs
+libs
+libs/*
+
 # Log files
 *.log
 

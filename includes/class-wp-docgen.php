@@ -70,15 +70,96 @@ class WP_DocGen {
         // Add hooks
         add_action('admin_notices', array($this, 'check_requirements')); 
     }
-
     /**
-     * Generate document dari provider
+     * Generate document dari template ID
      * 
-     * @param WP_DocGen_Provider $provider Provider interface
+     * @param string $template_id Template identifier
+     * @param array $extra_data Optional additional data
      * @return string|WP_Error Path ke file yang digenerate atau WP_Error jika gagal
      */
-    public function generate(WP_DocGen_Provider $provider) {
-        return $this->processor->generate($provider);
+    public function generate($template_id, $extra_data = []) {
+        try {
+            // Allow plugins to modify template path
+            $template_path = apply_filters('wp_docgen_template_path', '', $template_id);
+            if (empty($template_path)) {
+                return new WP_Error(
+                    'template_not_found',
+                    sprintf(__('No template registered for ID: %s', 'wp-docgen'), $template_id)
+                );
+            }
+
+            // Get template data from plugins
+            $data = apply_filters('wp_docgen_template_data', [], $template_id);
+            
+            // Merge with extra data
+            $data = array_merge($data, $extra_data);
+
+            // Validate data
+            $data = $this->validate_data($data);
+            if (is_wp_error($data)) {
+                return $data;
+            }
+
+            // Fire before generate action
+            do_action('wp_docgen_before_generate', $template_id, $data);
+
+            // Get output path
+            $output_path = apply_filters('wp_docgen_output_path', 
+                wp_upload_dir()['basedir'] . '/wp-docgen',
+                $template_id
+            );
+
+            // Create output directory if not exists
+            wp_mkdir_p($output_path);
+
+            // Get output filename
+            $filename = apply_filters('wp_docgen_output_filename', 
+                'document-' . time(),
+                $template_id
+            );
+
+            // Process template
+            $output_file = $this->processor->process_template(
+                $template_path,
+                $data,
+                $output_path,
+                $filename
+            );
+
+            if (is_wp_error($output_file)) {
+                do_action('wp_docgen_generation_error', $output_file, $template_id);
+                return $output_file;
+            }
+
+            // Fire after generate action
+            do_action('wp_docgen_after_generate', $output_file, $template_id);
+
+            // Document saved successfully
+            do_action('wp_docgen_document_saved', $output_file, $template_id);
+
+            return $output_file;
+
+        } catch (Exception $e) {
+            $error = new WP_Error(
+                'generation_failed',
+                $e->getMessage()
+            );
+            do_action('wp_docgen_generation_error', $error, $template_id);
+            return $error;
+        }
+    }
+
+    /**
+     * Register custom field processor
+     */
+    public function register_field_processor($type, $callback, $pattern = '') {
+        add_filter('wp_docgen_custom_fields', function($fields) use ($type, $callback, $pattern) {
+            $fields[$type] = [
+                'callback' => $callback,
+                'pattern' => $pattern
+            ];
+            return $fields;
+        });
     }
 
     /**

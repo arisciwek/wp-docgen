@@ -55,36 +55,36 @@ class WP_DocGen_Fields {
     * Format terbilang
     */
    public function format_terbilang($number) {
-       $number = abs($number);
-   	$angka = array(
-           '', 'satu', 'dua', 'tiga', 'empat', 'lima',
-           'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'
-       );
-   	$temp = '';
-   	
-   	if ($number < 12) {
-   		$temp = ' ' . $angka[$number];
-   	} else if ($number < 20) {
-   		$temp = $this->format_terbilang($number - 10) . ' belas';
-   	} else if ($number < 100) {
-   		$temp = $this->format_terbilang($number/10) . ' puluh' . $this->format_terbilang($number % 10);
-   	} else if ($number < 200) {
-   		$temp = ' seratus' . $this->format_terbilang($number - 100);
-   	} else if ($number < 1000) {
-   		$temp = $this->format_terbilang($number/100) . ' ratus' . $this->format_terbilang($number % 100);
-   	} else if ($number < 2000) {
-   		$temp = ' seribu' . $this->format_terbilang($number - 1000);
-   	} else if ($number < 1000000) {
-   		$temp = $this->format_terbilang($number/1000) . ' ribu' . $this->format_terbilang($number % 1000);
-   	} else if ($number < 1000000000) {
-   		$temp = $this->format_terbilang($number/1000000) . ' juta' . $this->format_terbilang($number % 1000000);
-   	} else if ($number < 1000000000000) {
-   		$temp = $this->format_terbilang($number/1000000000) . ' milyar' . $this->format_terbilang(fmod($number,1000000000));
-   	} else if ($number < 1000000000000000) {
-   		$temp = $this->format_terbilang($number/1000000000000) . ' trilyun' . $this->format_terbilang(fmod($number,1000000000000));
-   	}     
-   	
-       return trim($temp);
+        $number = abs($number);
+       	$angka = array(
+               '', 'satu', 'dua', 'tiga', 'empat', 'lima',
+               'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'
+           );
+       	$temp = '';
+       	
+       	if ($number < 12) {
+       		$temp = ' ' . $angka[$number];
+       	} else if ($number < 20) {
+       		$temp = $this->format_terbilang($number - 10) . ' belas';
+       	} else if ($number < 100) {
+       		$temp = $this->format_terbilang($number/10) . ' puluh' . $this->format_terbilang($number % 10);
+       	} else if ($number < 200) {
+       		$temp = ' seratus' . $this->format_terbilang($number - 100);
+       	} else if ($number < 1000) {
+       		$temp = $this->format_terbilang($number/100) . ' ratus' . $this->format_terbilang($number % 100);
+       	} else if ($number < 2000) {
+       		$temp = ' seribu' . $this->format_terbilang($number - 1000);
+       	} else if ($number < 1000000) {
+       		$temp = $this->format_terbilang($number/1000) . ' ribu' . $this->format_terbilang($number % 1000);
+       	} else if ($number < 1000000000) {
+       		$temp = $this->format_terbilang($number/1000000) . ' juta' . $this->format_terbilang($number % 1000000);
+       	} else if ($number < 1000000000000) {
+       		$temp = $this->format_terbilang($number/1000000000) . ' milyar' . $this->format_terbilang(fmod($number,1000000000));
+       	} else if ($number < 1000000000000000) {
+       		$temp = $this->format_terbilang($number/1000000000000) . ' trilyun' . $this->format_terbilang(fmod($number,1000000000000));
+       	}     
+       	
+           return trim($temp);
    }
 
    /**

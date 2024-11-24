@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 class WP_DocGen_Processor {
-
+    
    /**
     * Generate document dari provider
     */
@@ -43,6 +43,20 @@ class WP_DocGen_Processor {
            $temp_path = $this->create_temp_copy($template_path, $provider);
            if (is_wp_error($temp_path)) {
                return $temp_path; 
+           }
+
+           // Load required PHPWord classes if not loaded
+           $required_classes = array(
+               'Exception' => WP_DOCGEN_DIR . 'libs/phpword/src/PhpOffice/PhpWord/Exception/Exception.php',
+               'TemplateProcessor' => WP_DOCGEN_DIR . 'libs/phpword/src/PhpOffice/PhpWord/TemplateProcessor.php',
+               'Settings' => WP_DOCGEN_DIR . 'libs/phpword/src/PhpOffice/PhpWord/Settings.php',
+               'IOFactory' => WP_DOCGEN_DIR . 'libs/phpword/src/PhpOffice/PhpWord/IOFactory.php'
+           );
+
+           foreach ($required_classes as $class => $path) {
+               if (!class_exists('PhpOffice\\PhpWord\\' . $class) && file_exists($path)) {
+                   require_once $path;
+               }
            }
 
            // Process template
@@ -117,35 +131,40 @@ class WP_DocGen_Processor {
        $template_ext = pathinfo($template_path, PATHINFO_EXTENSION);
        $output_format = $provider->get_output_format();
        
-       // Initialize PHPWord
-       $phpWord = new \PhpOffice\PhpWord\TemplateProcessor($template_path);
-       
-       // Replace variables in template
-       foreach ($data as $key => $value) {
-           if (is_array($value)) {
-               $phpWord->cloneRowAndSetValues($key, $value);
-           } else {
-               $phpWord->setValue($key, $value);
+       try {
+           // Initialize PHPWord template processor
+           $phpWord = new \PhpOffice\PhpWord\TemplateProcessor($template_path);
+           
+           // Replace variables in template
+           foreach ($data as $key => $value) {
+               if (is_array($value)) {
+                   $phpWord->cloneRowAndSetValues($key, $value);
+               } else {
+                   $phpWord->setValue($key, $value);
+               }
            }
+
+           // Generate output filename
+           $output_filename = $provider->get_output_filename();
+           if (empty($output_filename)) {
+               $output_filename = 'document-' . time();
+           }
+           
+           $output_path = $provider->get_temp_dir() . '/' . 
+                         sanitize_file_name($output_filename) . '.' . $output_format;
+
+           // Save output file
+           $phpWord->saveAs($output_path);
+
+           if ($output_format === 'pdf') {
+               return $this->convert_to_pdf($output_path);
+           }
+
+           return $output_path;
+
+       } catch (\PhpOffice\PhpWord\Exception\Exception $e) {
+           return new WP_Error('template_processing_failed', $e->getMessage());
        }
-
-       // Generate output filename
-       $output_filename = $provider->get_output_filename();
-       if (empty($output_filename)) {
-           $output_filename = 'document-' . time();
-       }
-       
-       $output_path = $provider->get_temp_dir() . '/' . 
-                     sanitize_file_name($output_filename) . '.' . $output_format;
-
-       // Save output file
-       $phpWord->saveAs($output_path);
-
-       if ($output_format === 'pdf') {
-           return $this->convert_to_pdf($output_path);
-       }
-
-       return $output_path;
    }
 
    /**

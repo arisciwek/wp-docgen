@@ -64,12 +64,12 @@ class WP_DocGen_PhpWord_Loader {
             $full_path = WP_DOCGEN_DIR . $base . $file;
             if (file_exists($full_path)) {
                 if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('DocGen PhpWord: Found ' . $file . ' at ' . $full_path);
+                    //error_log('DocGen PhpWord: Found ' . $file . ' at ' . $full_path);
                 }
                 return $full_path;
             }
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('DocGen PhpWord: Checked path ' . $full_path);
+                //error_log('DocGen PhpWord: Checked path ' . $full_path);
             }
         }
         if (defined('WP_DEBUG') && WP_DEBUG) {
@@ -93,11 +93,11 @@ class WP_DocGen_PhpWord_Loader {
 
         foreach ($possible_paths as $path) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('DocGen PhpWord: Checking for Autoloader at ' . $path);
+                // error_log('DocGen PhpWord: Checking for Autoloader at ' . $path);
             }
             if (file_exists($path)) {
                 if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('DocGen PhpWord: Found Autoloader at ' . $path);
+                    // error_log('DocGen PhpWord: Found Autoloader at ' . $path);
                 }
                 return $path;
             }
@@ -110,9 +110,6 @@ class WP_DocGen_PhpWord_Loader {
      * Register PhpWord autoloader
      */
     public static function register() {
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('DocGen PhpWord: Starting autoloader registration');
-        }
 
         // Pre-load essential shared classes
         $essential_files = array(
@@ -131,7 +128,7 @@ class WP_DocGen_PhpWord_Loader {
         $autoloader_path = self::find_autoloader();
         if ($autoloader_path) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('DocGen PhpWord: Loading Autoloader from ' . $autoloader_path);
+                //error_log('DocGen PhpWord: Loading Autoloader from ' . $autoloader_path);
             }
             require_once $autoloader_path;
             
@@ -139,10 +136,10 @@ class WP_DocGen_PhpWord_Loader {
             if (class_exists('PhpOffice\PhpWord\Autoloader')) {
                 \PhpOffice\PhpWord\Autoloader::register();
             } else {
-                error_log('DocGen PhpWord: Autoloader class not found after loading file');
+                //error_log('DocGen PhpWord: Autoloader class not found after loading file');
             }
         } else {
-            error_log('DocGen PhpWord: Could not find Autoloader.php - will try to continue without it');
+            //error_log('DocGen PhpWord: Could not find Autoloader.php - will try to continue without it');
         }
 
         // Register our custom autoloader

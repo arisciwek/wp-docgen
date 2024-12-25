@@ -60,20 +60,32 @@ class WP_DocGen_PhpWord_Loader {
      * @return string|false Full path if found, false if not
      */
     private static function find_file($file) {
-        foreach (self::$base_paths as $base) {
-            $full_path = WP_DOCGEN_DIR . $base . $file;
+        $possible_paths = [
+            // PhpOffice namespace structure
+            WP_DOCGEN_DIR . 'libs/phpword/src/PhpOffice/PhpWord/' . $file,
+            // Legacy PhpWord structure
+            WP_DOCGEN_DIR . 'libs/phpword/src/PhpWord/' . $file,
+            // Root src directory
+            WP_DOCGEN_DIR . 'libs/phpword/src/' . $file,
+            // Add Exception directory paths
+            WP_DOCGEN_DIR . 'libs/phpword/src/PhpOffice/PhpWord/Exception/' . basename($file),
+            WP_DOCGEN_DIR . 'libs/phpword/src/PhpWord/Exception/' . basename($file)
+        ];
+
+        foreach ($possible_paths as $full_path) {
             if (file_exists($full_path)) {
                 if (defined('WP_DEBUG') && WP_DEBUG) {
-                    //error_log('DocGen PhpWord: Found ' . $file . ' at ' . $full_path);
+                    // error_log('DocGen PhpWord: Found ' . $file . ' at ' . $full_path);
                 }
                 return $full_path;
             }
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                //error_log('DocGen PhpWord: Checked path ' . $full_path);
+                // error_log('DocGen PhpWord: Checked path ' . $full_path);
             }
         }
+        
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('DocGen PhpWord: Could not find ' . $file . ' in any path');
+            // error_log('DocGen PhpWord: Could not find ' . $file . ' in any path');
         }
         return false;
     }

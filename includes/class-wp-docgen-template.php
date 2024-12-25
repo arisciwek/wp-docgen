@@ -235,12 +235,12 @@ class WP_DocGen_Template {
 
        return $data;
    }
-
+   
     /**
-     * Process QR code fields in template
+     * Process QR code fields
      * Handles ${qrcode:text:size[:error_level]} placeholders
      * 
-     * @param \PhpOffice\PhpWord\PhpWord $phpWord PHPWord instance
+     * @param PhpOffice\PhpWord\PhpWord $phpWord PHPWord instance
      * @param array $data Template data
      * @return array Updated template data
      */
@@ -302,7 +302,7 @@ class WP_DocGen_Template {
                 
                 // Add image to document
                 if (file_exists($cache_file)) {
-                    // Get current section or add new one
+                    // Get current section
                     $section = $phpWord->addSection();
                     
                     // Add image with proper styling
@@ -313,7 +313,9 @@ class WP_DocGen_Template {
                             'height' => $size,
                             'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::END,
                             'wrappingStyle' => 'inline',
-                            'positioning' => 'relative'
+                            'positioning' => 'relative',
+                            'marginLeft' => 1,
+                            'marginTop' => 1
                         )
                     );
                     

@@ -1,23 +1,44 @@
 <?php
 /**
-* Document processor class
-* 
-* @package WP_DocGen
-* @version 1.0.0
-* Path: includes/class-wp-docgen-processor.php
-* 
-* Changelog:
-* 1.0.0 - 2024-11-21 16:45 WIB
-* - Initial release with template processing
-* - Support DOCX/ODT reading and writing
-* - Temporary file handling
-*/
+ * Document processor class
+ * 
+ * @package     WP_DocGen
+ * @subpackage  Includes
+ * @version     1.0.2
+ * @author      arisciwek
+ * 
+ * Path: includes/class-wp-docgen-processor.php
+ * 
+ * Description:
+ * Class utama untuk pemrosesan dokumen template.
+ * Menghandle konversi template ke dokumen final dengan data yang diberikan.
+ * Mendukung konversi ke berbagai format output (DOCX, PDF).
+ * 
+ * Changelog:
+ * 1.0.2 - 2024-12-27 20:07 WIB
+ * - Added proper image handling
+ * - Fixed template processing methods
+ * - Improved error handling
+ * 
+ * 1.0.1 - 2024-11-24
+ * - Added PDF conversion support
+ * - Added template validation
+ * 
+ * 1.0.0 - 2024-11-21 16:45 WIB
+ * - Initial release
+ */
 
 if (!defined('ABSPATH')) {
    die('Direct access not permitted.');
 }
 
 class WP_DocGen_Processor {
+    
+    private $template;
+
+    public function __construct() {
+        $this->template = new WP_DocGen_Template();
+    }
     
    /**
     * Generate document dari provider
@@ -127,45 +148,101 @@ class WP_DocGen_Processor {
    /**
     * Process template dengan PHPWord
     */
-   private function process_template($template_path, $data, $provider) {
-       $template_ext = pathinfo($template_path, PATHINFO_EXTENSION);
-       $output_format = $provider->get_output_format();
-       
+    // Di class-wp-docgen-processor.php
+
+private function get_output_path($provider) {
+    return $provider->get_temp_dir() . '/' . 
+           sanitize_file_name($provider->get_output_filename()) . '.' . 
+           $provider->get_output_format();
+}
+
+private function process_template($template_path, $data, $provider) {
+    try {
+        $phpWord = new \PhpOffice\PhpWord\TemplateProcessor($template_path);
+        $processed_data = $this->template->process_fields($phpWord, $data);
+
+        foreach ($processed_data as $key => $value) {
+            if ($this->is_image_field($key, $value)) {
+                $this->process_image($phpWord, $key, $value);
+            } else {
+                $phpWord->setValue($key, $value);
+            }
+        }
+
+        $output_path = $this->get_output_path($provider);
+        $phpWord->saveAs($output_path);
+        return $output_path;
+
+    } catch (Exception $e) {
+        error_log('Template processing error: ' . $e->getMessage());
+        return new WP_Error('processing_failed', $e->getMessage());
+    }
+}
+
+    private function is_image_field($key, $value) {
+       return (
+           (strpos($key, 'qrcode:') === 0 || strpos($key, 'image:') === 0) && 
+           is_string($value) &&
+           file_exists($value) && 
+           preg_match('/\.(png|jpg|jpeg|gif)$/i', $value)
+       );
+    }
+
+    private function process_image($phpWord, $key, $value) {
        try {
-           // Initialize PHPWord template processor
-           $phpWord = new \PhpOffice\PhpWord\TemplateProcessor($template_path);
-           
-           // Replace variables in template
-           foreach ($data as $key => $value) {
-               if (is_array($value)) {
-                   $phpWord->cloneRowAndSetValues($key, $value);
-               } else {
-                   $phpWord->setValue($key, $value);
-               }
-           }
+           $parts = explode(':', $key);
+           $width = isset($parts[2]) ? (int)$parts[2] : 100;
+           $height = isset($parts[3]) ? (int)$parts[3] : $width;
 
-           // Generate output filename
-           $output_filename = $provider->get_output_filename();
-           if (empty($output_filename)) {
-               $output_filename = 'document-' . time();
-           }
-           
-           $output_path = $provider->get_temp_dir() . '/' . 
-                         sanitize_file_name($output_filename) . '.' . $output_format;
-
-           // Save output file
-           $phpWord->saveAs($output_path);
-
-           if ($output_format === 'pdf') {
-               return $this->convert_to_pdf($output_path);
-           }
-
-           return $output_path;
-
-       } catch (\PhpOffice\PhpWord\Exception\Exception $e) {
-           return new WP_Error('template_processing_failed', $e->getMessage());
+           $phpWord->setImageValue($key, [
+               'path' => $value,
+               'width' => $width,
+               'height' => $height,
+               'ratio' => true
+           ]);
+           error_log("Successfully set image {$key}");
+       } catch (Exception $e) {
+           error_log("Image processing error for {$key}: " . $e->getMessage());
        }
-   }
+    }
+
+   /*
+    private function process_template($template_path, $data, $provider) {
+        try {
+            // Initialize template processor 
+            $template = new WP_DocGen_Template();
+                        
+            // Initialize PHPWord template processor
+            $phpWord = new \PhpOffice\PhpWord\TemplateProcessor($template_path);
+
+            // Process custom fields
+            $processed_data = $template->process_fields($phpWord, $data);
+            
+            // Replace variables in template
+            foreach ($processed_data as $key => $value) {
+                if (is_array($value)) {
+                    $phpWord->cloneRowAndSetValues($key, $value);
+                } else {
+                    $phpWord->setValue($key, $value);
+                }
+            }
+            
+            // Generate output filename & path
+            $output_filename = $provider->get_output_filename();
+            $output_format = $provider->get_output_format();
+            $output_path = $provider->get_temp_dir() . '/' . 
+                          sanitize_file_name($output_filename) . '.' . $output_format;
+
+            // Save output file
+            $phpWord->saveAs($output_path);
+            return $output_path;
+
+        } catch (\PhpOffice\PhpWord\Exception\Exception $e) {
+            return new WP_Error('template_processing_failed', $e->getMessage());
+        }
+    }
+    */
+
 
    /**
     * Convert document to PDF using PDF converter

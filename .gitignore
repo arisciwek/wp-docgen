@@ -36,6 +36,9 @@ libs/*
 # Log files
 *.log
 
+# Devels file
+/.devels/
+
 # htaccess
 /.htaccess
 

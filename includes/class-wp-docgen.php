@@ -57,9 +57,11 @@ class WP_DocGen {
         // Add hooks
         add_action('admin_notices', array($this, 'check_requirements')); 
     }
-
+    
+    // Di class-wp-docgen.php, tambahkan:
     public function generate(WP_DocGen_Provider $provider) {
-        return $this->processor->generate($provider);
+        $processor = new WP_DocGen_Processor(); 
+        return $processor->generate($provider);
     }
 
     public function check_requirements() {

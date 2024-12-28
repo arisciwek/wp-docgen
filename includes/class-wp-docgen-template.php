@@ -17,7 +17,7 @@
  * Menggunakan caching untuk mengoptimalkan performa.
  * 
  * Format Placeholder yang Didukung:
- * - ${date:FORMAT}                   : Format tanggal (Y-m-d, d/m/Y, dll)
+ * - ${date:TEXT:FORMAT}              : Format tanggal (j F Y, H:i, Y-m-d, d/m/Y, dll)
  * - ${user:FIELD}                    : Data user WordPress (name, email, role)
  * - ${image:PATH:WIDTH:HEIGHT}       : Insert gambar dengan dimensi
  * - ${site:FIELD}                    : Info site (name, url, description)
@@ -62,21 +62,12 @@
  * - Unique filenames untuk temporary files
  * 
  * Changelog:
- * 1.0.2 - 2024-12-25
- * - Added QR code caching system
- * - Enhanced error handling
- * - Added security features
- * - Improved QR code positioning
  * 
- * 1.0.1 - 2024-11-24
- * - Added support for error_level parameter
- * - Fixed image alignment issues
- * - Added cache cleanup
+ * 1.0.2 - 2024-12-27 20:07 WIB
+ * - Fixed QR code image generation
+ * - Added image processing methods
+ * - Improved template field handling
  * 
- * 1.0.0 - 2024-11-21
- * - Initial release with basic field support
- * - Added date, user, image processing
- * - Basic QR code implementation
  */
 
 if (!defined('ABSPATH')) {
@@ -95,251 +86,387 @@ class WP_DocGen_Template {
        'qrcode'    // Generate QR Code
    );
 
-   /**
-    * Process custom fields dalam template
-    */
-   public function process_fields($phpWord, $data) {
-       foreach ($this->supported_fields as $field) {
-           $method = "process_{$field}_field";
-           if (method_exists($this, $method)) {
-               $data = $this->$method($phpWord, $data);
-           }
-       }
-       return $data;
-   }
+ 
+public function process_fields($phpWord, $data) {
+    error_log('=== START TEMPLATE FIELD PROCESSING ===');
+    error_log('Supported fields: ' . print_r($this->supported_fields, true));
+    error_log('Initial data: ' . print_r($data, true));
+
+    foreach ($this->supported_fields as $field) {
+        $method = "process_{$field}_field";
+        error_log("Checking field processor: {$field} -> {$method}");
+        
+        if (method_exists($this, $method)) {
+            error_log("Processing field type: {$field}");
+            $data = $this->$method($phpWord, $data);
+            error_log("After {$field} processing, data: " . print_r($data, true));
+        } else {
+            error_log("Field processor not found: {$method}");
+        }
+    }
+
+    error_log('=== END TEMPLATE FIELD PROCESSING ===');
+    return $data;
+}
 
    /**
     * Process date fields 
-    * Format: ${date:FORMAT}
+    * Format: ${date:TEXT:FORMAT}
     */
-   private function process_date_field($phpWord, $data) {
-       $template = $phpWord->getMainPart()->getContent();
-       
-       // Find date variables
-       preg_match_all('/\$\{date:(.*?)\}/', $template, $matches);
-       
-       foreach ($matches[1] as $key => $format) {
-           $var_name = $matches[0][$key];
-           $formatted_date = date($format);
-           $data[$var_name] = $formatted_date;
-       }
+    private function process_date_field($phpWord, $data) {
+        try {
+            $variables = $phpWord->getVariables();
+            
+            foreach ($variables as $variable) {
+                if (preg_match('/^date:(.*?):(.*?)$/', $variable, $matches)) {
+                    $text_key = $matches[1];
+                    $format = $matches[2];
+                    
+                    // Get date value from data or use current time
+                    $date_value = isset($data[$text_key]) ? $data[$text_key] : current_time('mysql');
+                    
+                    // Format the date
+                    $timestamp = strtotime($date_value);
+                    if ($timestamp) {
+                        $data[$variable] = date($format, $timestamp);
+                    }
+                }
+            }
+            
+            return $data;
+        } catch (Exception $e) {
+            error_log('Date field processing error: ' . $e->getMessage());
+            return $data;
+        }
+    }
 
-       return $data;
-   }
-
-   /**
-    * Process user fields
-    * Format: ${user:FIELD}
-    */
-   private function process_user_field($phpWord, $data) {
-       $template = $phpWord->getMainPart()->getContent();
-       
-       // Find user variables
-       preg_match_all('/\$\{user:(.*?)\}/', $template, $matches);
-       
-       $current_user = wp_get_current_user();
-
-       foreach ($matches[1] as $key => $field) {
-           $var_name = $matches[0][$key];
-           $value = '';
-
-           switch ($field) {
-               case 'name':
-                   $value = $current_user->display_name;
-                   break;
-               case 'email': 
-                   $value = $current_user->user_email;
-                   break;
-               case 'role':
-                   $value = implode(', ', $current_user->roles);
-                   break;
-               default:
-                   if (isset($current_user->$field)) {
-                       $value = $current_user->$field;
+       /**
+        * Process user fields
+        * Format: ${user:FIELD}
+        */
+       private function process_user_field($phpWord, $data) {
+       try {
+           $variables = $phpWord->getVariables();
+           $current_user = wp_get_current_user();
+           
+           foreach ($variables as $variable) {
+               if (preg_match('/^user:(.*?)$/', $variable, $matches)) {
+                   $field = $matches[1];
+                   $value = '';
+                   
+                   switch ($field) {
+                       case 'name':
+                           $value = $current_user->display_name;
+                           break;
+                       case 'email': 
+                           $value = $current_user->user_email;
+                           break;
+                       case 'role':
+                           $value = implode(', ', $current_user->roles);
+                           break;
+                       default:
+                           if (isset($current_user->$field)) {
+                               $value = $current_user->$field;
+                           }
                    }
+                   
+                   $data[$variable] = $value;
+               }
            }
-
-           $data[$var_name] = $value;
+           
+           return $data;
+       } catch (Exception $e) {
+           error_log('User field processing error: ' . $e->getMessage());
+           return $data;
        }
-
-       return $data;
-   }
+    }
 
    /**
     * Process image fields
     * Format: ${image:PATH:WIDTH:HEIGHT}
     */
-   private function process_image_field($phpWord, $data) {
-       $template = $phpWord->getMainPart()->getContent();
-       
-       // Find image variables
-       preg_match_all('/\$\{image:(.*?):(.*?):(.*?)\}/', $template, $matches);
-
-       foreach ($matches[1] as $key => $path) {
-           $var_name = $matches[0][$key];
-           $width = (int)$matches[2][$key];
-           $height = (int)$matches[3][$key];
-
-           if (file_exists($path)) {
-               $section = $phpWord->addSection();
-               $section->addImage(
-                   $path,
-                   array(
-                       'width' => $width,
-                       'height' => $height,
-                       'alignment' => 'center'
-                   )
-               );
+    private function process_image_field($phpWord, $data) {
+       try {
+           $variables = $phpWord->getVariables();
+           
+           foreach ($variables as $variable) {
+               if (preg_match('/^image:(.*?):(.*?):(.*?)$/', $variable, $matches)) {
+                   $path = $matches[1];
+                   $width = (int)$matches[2];
+                   $height = (int)$matches[3];
+                   
+                   if (file_exists($path)) {
+                       $data[$variable] = [
+                           'path' => $path,
+                           'width' => $width,
+                           'height' => $height
+                       ];
+                   }
+               }
            }
-
-           $data[$var_name] = '';
+           
+           return $data;
+       } catch (Exception $e) {
+           error_log('Image field processing error: ' . $e->getMessage());
+           return $data;
        }
+    }
 
-       return $data;
-   }
-
-   /**
-    * Process site fields
-    * Format: ${site:FIELD} 
-    */
-   private function process_site_field($phpWord, $data) {
-       $template = $phpWord->getMainPart()->getContent();
-       
-       // Find site variables
-       preg_match_all('/\$\{site:(.*?)\}/', $template, $matches);
-
-       foreach ($matches[1] as $key => $field) {
-           $var_name = $matches[0][$key];
-           $value = '';
-
-           switch ($field) {
-               case 'name':
-                   $value = get_bloginfo('name');
-                   break;
-               case 'url':
-                   $value = get_bloginfo('url');
-                   break;
-               case 'description':
-                   $value = get_bloginfo('description');
-                   break;
-               case 'admin_email':
-                   $value = get_bloginfo('admin_email');
-                   break;
-               case 'version':
-                   $value = get_bloginfo('version');
-                   break;
+       /**
+        * Process site fields
+        * Format: ${site:FIELD} 
+        */
+       private function process_site_field($phpWord, $data) {
+       try {
+           $variables = $phpWord->getVariables();
+           
+           foreach ($variables as $variable) {
+               if (preg_match('/^site:(.*?)$/', $variable, $matches)) {
+                   $field = $matches[1];
+                   $value = '';
+                   
+                   switch ($field) {
+                       case 'name':
+                           $value = get_bloginfo('name');
+                           break;
+                       case 'url':
+                           $value = get_bloginfo('url');
+                           break;
+                       case 'description':
+                           $value = get_bloginfo('description');
+                           break;
+                       case 'admin_email':
+                           $value = get_bloginfo('admin_email');
+                           break;
+                       case 'version':
+                           $value = get_bloginfo('version');
+                           break;
+                   }
+                   
+                   $data[$variable] = $value;
+               }
            }
-
-           $data[$var_name] = $value;
+           
+           return $data;
+       } catch (Exception $e) {
+           error_log('Site field processing error: ' . $e->getMessage());
+           return $data;
        }
-
-       return $data;
-   }
-   
+    }
+       
     /**
      * Process QR code fields
      * Handles ${qrcode:text:size[:error_level]} placeholders
      * 
-     * @param PhpOffice\PhpWord\PhpWord $phpWord PHPWord instance
+     * @param PhpOffice\PhpWord\TemplateProcessor $templateProcessor Template processor instance
      * @param array $data Template data
      * @return array Updated template data
      */
+
     private function process_qrcode_field($phpWord, $data) {
-        // Ensure QR library is available
-        if (!file_exists(WP_DOCGEN_DIR . 'libs/phpqrcode/qrlib.php')) {
-            error_log('WP DocGen: QR Code library not found');
+        try {
+            static $processed = [];
+            
+            require_once WP_DOCGEN_DIR . 'libs/phpqrcode/qrlib.php';
+            $variables = $phpWord->getVariables();
+            $cache_dir = $this->get_cache_dir();
+
+            foreach ($variables as $variable) {
+                // Skip jika variabel sudah diproses
+                if (isset($processed[$variable])) {
+                    continue;
+                }
+
+                if (preg_match('/^qrcode:(.*?):(.*?)(?::(.*?))?$/', $variable, $matches)) {
+                    $text_key = $matches[1];
+                    $size = (int)$matches[2]; 
+                    $error_level = isset($matches[3]) ? strtoupper($matches[3]) : 'L';
+
+                    // Skip jika nilai sudah berupa path file
+                    if (isset($data[$variable]) && strpos($data[$variable], '.png') !== false) {
+                        $processed[$variable] = true;
+                        continue;
+                    }
+
+                    $text = isset($data[$text_key]) ? $data[$text_key] : '';
+                    if (empty($text)) continue;
+
+                    $cache_key = md5($text . $size . $error_level);
+                    $cache_file = $cache_dir . '/' . $cache_key . '.png';
+
+                    if (!file_exists($cache_file)) {
+                        QRcode::png($text, $cache_file, $error_level, (int)($size/10), 2);
+                    }
+
+                    if (file_exists($cache_file)) {
+                        $data[$variable] = $cache_file;
+                        $processed[$variable] = true;
+                    }
+                }
+            }
+            return $data;
+        } catch (Exception $e) {
+            error_log('QR Code processing error: ' . $e->getMessage());
+            return $data;
+        }
+    }
+
+/*
+    private function process_qrcode_field($phpWord, $data) {
+        error_log('=== START QR CODE IMAGE PROCESSING ===');
+        error_log('Processing QR code with data: ' . print_r($data, true));
+
+        // Check QR library
+        $qr_lib_path = WP_DOCGEN_DIR . 'libs/phpqrcode/qrlib.php';
+        error_log('Looking for QR library at: ' . $qr_lib_path);
+        
+        if (!file_exists($qr_lib_path)) {
+            error_log('QR Library not found!');
             return $data;
         }
         
-        require_once WP_DOCGEN_DIR . 'libs/phpqrcode/qrlib.php';
-        
+        require_once $qr_lib_path;
+
         // Get template content
         $template = $phpWord->getMainPart()->getContent();
         
-        // Match ${qrcode:text:size[:error_level]} pattern
+        // Find placeholders
         preg_match_all('/\$\{qrcode:(.*?):(.*?)(?::(.*?))?\}/', $template, $matches);
+        error_log('Found QR code placeholders: ' . print_r($matches, true));
         
-        // Create cache directory if not exists
+        foreach ($matches[1] as $key => $text_key) {
+            try {
+                $placeholder = $matches[0][$key];
+                error_log("Processing placeholder: {$placeholder}");
+                
+                $size = min(max((int)$matches[2][$key], 50), 500);
+                $error_level = isset($matches[3][$key]) ? $matches[3][$key] : 'L';
+                error_log("QR Code size: {$size}, Error level: {$error_level}");
+                
+                // Get text from data array
+                $text = isset($data[$text_key]) ? $data[$text_key] : '';
+                error_log("QR Code content text: {$text}");
+                
+                if (empty($text)) {
+                    error_log("Error: No text found for key: {$text_key}");
+                    continue;
+                }
+
+                // Setup cache
+                $cache_dir = $this->get_cache_dir();
+                $cache_key = md5($text . $size . $error_level);
+                $cache_file = $cache_dir . '/' . $cache_key . '.png';
+                
+                error_log('Cache directory: ' . $cache_dir);
+                error_log('Cache file path: ' . $cache_file);
+
+                // Generate QR code if not cached
+                if (!file_exists($cache_file)) {
+                    error_log('Cache file not found, generating new QR code...');
+                    
+                    // Generate QR code
+                    try {
+                        QRcode::png($text, $cache_file, $error_level, $size/25, 2);
+                        error_log('QR Code generated successfully at: ' . $cache_file);
+                        
+                        // Verify file
+                        if (file_exists($cache_file)) {
+                            $filesize = filesize($cache_file);
+                            $perms = substr(sprintf('%o', fileperms($cache_file)), -4);
+                            error_log("Generated file details - Size: {$filesize} bytes, Permissions: {$perms}");
+                        }
+                    } catch (Exception $e) {
+                        error_log('QR Code generation failed: ' . $e->getMessage());
+                        continue;
+                    }
+                } else {
+                    error_log('Using cached QR code from: ' . $cache_file);
+                }
+
+                if (file_exists($cache_file)) {
+                    $data[$placeholder] = [
+                        'path' => $cache_file,
+                        'width' => $size,
+                        'height' => $size
+                    ];
+                    error_log('QR Code data set in template: ' . print_r($data[$placeholder], true));
+                } else {
+                    error_log('Error: Generated QR code file not found!');
+                }
+
+            } catch (Exception $e) {
+                error_log('QR Code Processing Error: ' . $e->getMessage());
+                error_log('Error Stack Trace: ' . $e->getTraceAsString());
+            }
+        }
+
+        error_log('=== END QR CODE IMAGE PROCESSING ===');
+        return $data;
+    }
+*/
+
+
+    /**
+     * Get temporary directory
+     * @return string
+     */
+    public function get_temp_dir() {
         $upload_dir = wp_upload_dir();
-        $cache_dir = trailingslashit($upload_dir['basedir']) . 'wp-docgen/qrcache';
-        if (!file_exists($cache_dir)) {
-            wp_mkdir_p($cache_dir);
+        $temp_dir = $upload_dir['basedir'] . '/docgen-temp/qrcodes';
+        
+        if (!file_exists($temp_dir)) {
+            wp_mkdir_p($temp_dir);
             // Add index.php for security
             file_put_contents($cache_dir . '/index.php', '<?php // Silence is golden');
             // Add .htaccess
             file_put_contents($cache_dir . '/.htaccess', 'deny from all');
         }
 
-        // Process each QR code placeholder
-        foreach ($matches[1] as $key => $text) {
-            try {
-                $var_name = $matches[0][$key];
-                $size = min(max((int)$matches[2][$key], 50), 500); // Size between 50-500px
-                $error_level = isset($matches[3][$key]) ? $matches[3][$key] : 'L';
-                
-                // Validate error level
-                if (!in_array($error_level, ['L', 'M', 'Q', 'H'])) {
-                    $error_level = 'L';
-                }
-                
-                // Generate cache filename based on content and parameters
-                $cache_key = md5($text . $size . $error_level);
-                $cache_file = $cache_dir . '/' . $cache_key . '.png';
-                
-                // Generate QR code if not in cache
-                if (!file_exists($cache_file)) {
-                    // Create temp file first
-                    $temp_file = $cache_dir . '/temp_' . wp_unique_filename($cache_dir, 'qr.png');
-                    
-                    // Generate QR code with error handling
-                    if (!QRcode::png($text, $temp_file, $error_level, $size/25, 2)) {
-                        throw new Exception('Failed to generate QR code');
-                    }
-                    
-                    // Move to cache if generation successful
-                    rename($temp_file, $cache_file);
-                }
-                
-                // Add image to document
-                if (file_exists($cache_file)) {
-                    // Get current section
-                    $section = $phpWord->addSection();
-                    
-                    // Add image with proper styling
-                    $section->addImage(
-                        $cache_file,
-                        array(
-                            'width' => $size,
-                            'height' => $size,
-                            'alignment' => \PhpOffice\PhpWord\SimpleType\Jc::END,
-                            'wrappingStyle' => 'inline',
-                            'positioning' => 'relative',
-                            'marginLeft' => 1,
-                            'marginTop' => 1
-                        )
-                    );
-                    
-                    // Clear placeholder
-                    $data[$var_name] = '';
-                } else {
-                    throw new Exception('QR code file not found after generation');
-                }
-                
-            } catch (Exception $e) {
-                error_log('WP DocGen QR Code Error: ' . $e->getMessage());
-                $data[$var_name] = '[QR Code Error]';
-            }
-        }
-        
-        // Cleanup old cache files (older than 24 hours)
+        return $temp_dir;
+    }
+
+    /**
+     * Cleanup old QR code cache files
+     */
+    private function cleanup_qr_cache($cache_dir) {
+        // Delete files older than 24 hours
         $files = glob($cache_dir . '/*.png');
         foreach ($files as $file) {
             if (filemtime($file) < time() - 86400) {
                 @unlink($file);
             }
         }
-
-        return $data;
     }
 
+    /**
+     * Get cache directory path
+     */
+    private function get_cache_dir() {
+        $upload_dir = wp_upload_dir();
+        $cache_dir = $upload_dir['basedir'] . '/docgen-temp/qrcache';
+        
+        error_log('Checking cache directory: ' . $cache_dir);
+        
+        if (!file_exists($cache_dir)) {
+            error_log('Creating cache directory...');
+            $result = wp_mkdir_p($cache_dir);
+            error_log('Directory creation result: ' . ($result ? 'success' : 'failed'));
+            
+            if ($result) {
+                // Add protection files
+                file_put_contents($cache_dir . '/index.php', '<?php // Silence is golden');
+                file_put_contents($cache_dir . '/.htaccess', 'deny from all');
+                
+                // Set permissions
+                chmod($cache_dir, 0755);
+                error_log('Directory permissions set');
+            }
+        }
+        
+        error_log('Directory exists: ' . (file_exists($cache_dir) ? 'yes' : 'no'));
+        error_log('Directory writable: ' . (is_writable($cache_dir) ? 'yes' : 'no'));
+        error_log('Directory permissions: ' . substr(sprintf('%o', fileperms($cache_dir)), -4));
+        
+        return $cache_dir;
+    }
 }

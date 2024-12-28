@@ -1,4 +1,3 @@
-```markdown
 # WP Document Generator (WP DocGen)
 
 Plugin WordPress untuk generate dokumen dari template DOCX/ODT dengan dukungan custom fields.
@@ -18,7 +17,7 @@ Plugin WordPress untuk generate dokumen dari template DOCX/ODT dengan dukungan c
 - PHP 7.4+ 
 - WordPress 5.8+
 - PHP extensions: zip, xml, fileinfo, gd
-- GD library for QR code generation
+- GD library untuk QR code generation
 
 ## Installation
 
@@ -29,47 +28,100 @@ Plugin WordPress untuk generate dokumen dari template DOCX/ODT dengan dukungan c
 5. Download PHP QR Code dari http://phpqrcode.sourceforge.net/
 6. Extract dan copy ke `wp-docgen/libs/phpqrcode`
 
-### PHP QR Code Setup
-Library PHP QR Code membutuhkan konfigurasi tambahan:
-- GD extension harus terinstall di PHP
-- Folder cache QR code harus writable (755)
-- Default folder: `wp-content/uploads/docgen-temp/qrcache`
-
 ## Usage
 
-### Custom Fields:
-Template dapat menggunakan fields:
-- Date: ${date:tanggal_terbit:Y-m-d}
-- User: ${user:display_name}
-- Image: ${image:/path/img.jpg:100:100}
-- Site: ${site:name}
-- QR code: ${qrcode:text:100}
+### Custom Fields Format
 
-### Format QR Code:
-Placeholder QR code memiliki format:
+#### Image Fields
 ```
-${qrcode:text:size[:error_level]}
+Format: ${image:name:width:height:halign:valign}
+Provider cukup menyediakan: 'image:name' => '/path/to/image.png'
+
+Parameters:
+- name      : Nama variabel berisi path gambar (required)
+- width     : Lebar dalam pixel (optional, default: 100)
+- height    : Tinggi dalam pixel (optional, default: 100)
+- halign    : Horizontal alignment (optional, default: center)
+             Valid: left, center, right, justify, both
+- valign    : Vertical alignment (optional, default: middle) 
+             Valid: top, middle, bottom, baseline
+
+Contoh Template:
+${image:logo:50:50:center:middle}     // Lengkap
+${image:logo:75:75}                   // Hanya ukuran
+${image:logo}                         // Default settings
 ```
-- text: Teks/URL yang akan di-encode (required)
-- size: Ukuran QR code dalam pixel (50-500) (required)
-- error_level: Level error correction (L/M/Q/H) (optional, default: L)
+
+#### QR Code Fields
+```
+Format: ${qrcode:text:size:error_level}
+Provider cukup menyediakan: 'qrcode:text' => 'URL/text to encode'
+
+Parameters:
+- text        : Nama variabel berisi teks/URL (required)
+- size        : Ukuran dalam pixel (optional, default: 100)
+- error_level : Error correction L/M/Q/H (optional, default: L)
+
+Contoh Template:
+${qrcode:qr_data:50:M}    // 50x50px, error level M
+${qrcode:qr_data:75}      // 75x75px, error level L
+${qrcode:qr_data}         // 100x100px, error level L
+```
+
+#### Date Fields
+```
+Format: ${date:field:format}
 
 Contoh:
-```
-${qrcode:https://example.com:100}
-${qrcode:Hello World:200:H}
+${date:tanggal_terbit:Y-m-d}     // 2024-12-28
+${date:created_at:j F Y}         // 28 December 2024
+${date:updated:H:i:s}            // 14:30:00
 ```
 
-### Format khusus:
+#### User Fields
+```
+Format: ${user:field}
+
+Contoh:
+${user:display_name}     // Nama tampilan user
+${user:email}           // Email user
+${user:role}            // Role/peran user
+```
+
+#### Site Fields
+```
+Format: ${site:field}
+
+Contoh:
+${site:name}            // Nama situs
+${site:url}            // URL situs
+${site:description}     // Deskripsi situs
+```
+
+### Format Khusus
 - Money: ${money:1000000:Rp}
 - Terbilang: ${terbilang:1000000}
 - Tanggal: ${tanggal:2024-01-01:j F Y}
 - Gelar: ${gelar:Budi:Dr.|S.Kom}
 
-### License:
+### Error Handling
+- Validasi file exists untuk gambar
+- Validasi parameter alignment dan error level
+- Fallback ke default settings jika parameter invalid
+- Error logging untuk troubleshooting
+- Cache management untuk QR code
+
+### Cache Directory
+- Default: wp-content/uploads/docgen-temp/
+- QR Cache: docgen-temp/qrcache/
+- Temporary: docgen-temp/temp/
+- Permissions: 755 (writable)
+
+## License
+
 GPL v2 or later
 
-### Credits:
+## Credits
+
 - PHPWord (https://github.com/PHPOffice/PHPWord)
 - PHP QR Code (http://phpqrcode.sourceforge.net/)
-```

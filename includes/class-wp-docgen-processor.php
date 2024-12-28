@@ -156,6 +156,41 @@ class WP_DocGen_Processor {
                $provider->get_output_format();
     }
 
+private function process_template($template_path, $data, $provider) {
+    try {
+        $phpWord = new \PhpOffice\PhpWord\TemplateProcessor($template_path);
+        $processed_data = $this->template->process_fields($phpWord, $data);
+
+        foreach ($processed_data as $key => $value) {
+            if ($this->is_image_field($key, $value)) {
+                // Gunakan setImageValue untuk gambar
+                $phpWord->setImageValue($key, $value);
+            } else {
+                // Gunakan setValue untuk teks biasa
+                $phpWord->setValue($key, $value);
+            }
+        }
+
+        $output_path = $this->get_output_path($provider);
+        $phpWord->saveAs($output_path);
+        return $output_path;
+
+    } catch (Exception $e) {
+        error_log('Template processing error: ' . $e->getMessage());
+        return new WP_Error('processing_failed', $e->getMessage());
+    }
+}
+
+private function is_image_field($key, $value) {
+    return (
+        (strpos($key, 'image:') === 0 || strpos($key, 'qrcode:') === 0) && 
+        is_array($value) && 
+        isset($value['path']) && 
+        file_exists($value['path'])
+    );
+}
+
+/*
     private function process_template($template_path, $data, $provider) {
         try {
             $phpWord = new \PhpOffice\PhpWord\TemplateProcessor($template_path);
@@ -178,7 +213,8 @@ class WP_DocGen_Processor {
             return new WP_Error('processing_failed', $e->getMessage());
         }
     }
-
+*/
+/*    
     private function is_image_field($key, $value) {
         return (
             (strpos($key, 'qrcode:') === 0 || strpos($key, 'image:') === 0) && 
@@ -187,7 +223,7 @@ class WP_DocGen_Processor {
             preg_match('/\.(png|jpg|jpeg|gif)$/i', $value)
         );
     }
-
+*/
     private function process_image($phpWord, $key, $value) {
         try {
             $parts = explode(':', $key);

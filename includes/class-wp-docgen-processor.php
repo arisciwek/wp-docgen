@@ -148,7 +148,6 @@ class WP_DocGen_Processor {
    /**
     * Process template dengan PHPWord
     */
-    // Di class-wp-docgen-processor.php
 
     private function get_output_path($provider) {
         return $provider->get_temp_dir() . '/' . 
@@ -156,41 +155,47 @@ class WP_DocGen_Processor {
                $provider->get_output_format();
     }
 
-private function process_template($template_path, $data, $provider) {
-    try {
-        $phpWord = new \PhpOffice\PhpWord\TemplateProcessor($template_path);
-        $processed_data = $this->template->process_fields($phpWord, $data);
-
-        foreach ($processed_data as $key => $value) {
-            if ($this->is_image_field($key, $value)) {
-                // Gunakan setImageValue untuk gambar
-                $phpWord->setImageValue($key, $value);
-            } else {
-                // Gunakan setValue untuk teks biasa
-                $phpWord->setValue($key, $value);
-            }
-        }
-
-        $output_path = $this->get_output_path($provider);
-        $phpWord->saveAs($output_path);
-        return $output_path;
-
-    } catch (Exception $e) {
-        error_log('Template processing error: ' . $e->getMessage());
-        return new WP_Error('processing_failed', $e->getMessage());
-    }
-}
-
-private function is_image_field($key, $value) {
-    return (
-        (strpos($key, 'image:') === 0 || strpos($key, 'qrcode:') === 0) && 
-        is_array($value) && 
-        isset($value['path']) && 
-        file_exists($value['path'])
-    );
-}
-
-/*
+    /**
+     * Process template document with provided data using PHPWord.
+     * 
+     * Handles the main template processing workflow:
+     * 1. Initializes PHPWord template processor
+     * 2. Processes all field types (date, image, QR code, etc) through WP_DocGen_Template
+     * 3. Sets processed values back to the template
+     * 4. Saves the final document
+     * 
+     * Field Types Supported:
+     * - Text fields: Using setValue()
+     * - Image fields: Using setImageValue() for both images and QR codes
+     * - Date fields: Processed and formatted as text
+     * - User fields: Processed from WP user data
+     * - Site fields: Processed from WP site data
+     * 
+     * @since 1.0.0
+     * @access private
+     * 
+     * @param string $template_path     Full path to template file (DOCX/ODT)
+     * @param array  $data             Data array containing field values
+     * @param WP_DocGen_Provider $provider Provider instance for output settings
+     * 
+     * @throws Exception If template processing fails
+     * @return string|WP_Error Path to generated document or WP_Error on failure
+     * 
+     * @example
+     * // Basic usage:
+     * $output = $this->process_template(
+     *     '/path/to/template.docx',
+     *     ['company_name' => 'ACME Corp'],
+     *     $provider
+     * );
+     * 
+     * // With image:
+     * $data = [
+     *     'image:logo' => '/path/to/logo.png',
+     *     'date:issue_date' => '2024-12-28'
+     * ];
+     * $output = $this->process_template($template_path, $data, $provider);
+     */
     private function process_template($template_path, $data, $provider) {
         try {
             $phpWord = new \PhpOffice\PhpWord\TemplateProcessor($template_path);
@@ -198,8 +203,10 @@ private function is_image_field($key, $value) {
 
             foreach ($processed_data as $key => $value) {
                 if ($this->is_image_field($key, $value)) {
-                    $this->process_image($phpWord, $key, $value);
+                    // Gunakan setImageValue untuk gambar
+                    $phpWord->setImageValue($key, $value);
                 } else {
+                    // Gunakan setValue untuk teks biasa
                     $phpWord->setValue($key, $value);
                 }
             }
@@ -213,17 +220,16 @@ private function is_image_field($key, $value) {
             return new WP_Error('processing_failed', $e->getMessage());
         }
     }
-*/
-/*    
+
     private function is_image_field($key, $value) {
         return (
-            (strpos($key, 'qrcode:') === 0 || strpos($key, 'image:') === 0) && 
-            is_string($value) &&
-            file_exists($value) && 
-            preg_match('/\.(png|jpg|jpeg|gif)$/i', $value)
+            (strpos($key, 'image:') === 0 || strpos($key, 'qrcode:') === 0) && 
+            is_array($value) && 
+            isset($value['path']) && 
+            file_exists($value['path'])
         );
     }
-*/
+
     private function process_image($phpWord, $key, $value) {
         try {
             $parts = explode(':', $key);

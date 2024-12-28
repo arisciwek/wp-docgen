@@ -150,168 +150,108 @@ class WP_DocGen_Processor {
     */
     // Di class-wp-docgen-processor.php
 
-private function get_output_path($provider) {
-    return $provider->get_temp_dir() . '/' . 
-           sanitize_file_name($provider->get_output_filename()) . '.' . 
-           $provider->get_output_format();
-}
-
-private function process_template($template_path, $data, $provider) {
-    try {
-        $phpWord = new \PhpOffice\PhpWord\TemplateProcessor($template_path);
-        
-        // Proses fields melalui template processor
-        $processed_data = $this->template->process_fields($phpWord, $data);
-        
-        foreach ($processed_data as $key => $value) {
-            // Cek apakah ini adalah image field
-            if (strpos($key, 'image:') === 0) {
-                // Pastikan file exists dan readable
-                if (file_exists($value) && is_readable($value)) {
-                    // Extract dimensi dari key (format: image:name:width:height)
-                    $parts = explode(':', $key);
-                    $width = isset($parts[2]) ? (int)$parts[2] : 100;
-                    $height = isset($parts[3]) ? (int)$parts[3] : $width;
-                    
-                    // Set image dengan dimensi
-                    $phpWord->setImageValue($key, array(
-                        'path' => $value,
-                        'width' => $width,
-                        'height' => $height,
-                        'ratio' => true
-                    ));
-                    
-                    error_log("Setting image value for {$key} with path: {$value}");
-                } else {
-                    error_log("Image file not found or not readable: {$value}");
-                }
-            }
-            // Cek apakah ini adalah QR code field
-            else if (strpos($key, 'qrcode:') === 0) {
-                if (file_exists($value) && is_readable($value)) {
-                    // Extract dimensi dari key (format: qrcode:text:size)
-                    $parts = explode(':', $key);
-                    $size = isset($parts[2]) ? (int)$parts[2] : 100;
-                    
-                    // Set QR code sebagai image
-                    $phpWord->setImageValue($key, array(
-                        'path' => $value,
-                        'width' => $size,
-                        'height' => $size,
-                        'ratio' => true
-                    ));
-                    
-                    error_log("Setting QR code value for {$key} with path: {$value}");
-                } else {
-                    error_log("QR code file not found or not readable: {$value}");
-                }
-            }
-            // Jika bukan image atau QR code, proses sebagai value biasa
-            else {
-                $phpWord->setValue($key, $value);
-            }
-        }
-
-        // Generate output path dan simpan
-        $output_path = $this->get_output_path($provider);
-        $phpWord->saveAs($output_path);
-        
-        return $output_path;
-
-    } catch (Exception $e) {
-        error_log('Template processing error: ' . $e->getMessage());
-        return new WP_Error('processing_failed', $e->getMessage());
-    }
-}
-/*
-
-private function process_template($template_path, $data, $provider) {
-    try {
-        $phpWord = new \PhpOffice\PhpWord\TemplateProcessor($template_path);
-        $processed_data = $this->template->process_fields($phpWord, $data);
-
-        foreach ($processed_data as $key => $value) {
-            if ($this->is_image_field($key, $value)) {
-                $this->process_image($phpWord, $key, $value);
-            } else {
-                $phpWord->setValue($key, $value);
-            }
-        }
-
-        $output_path = $this->get_output_path($provider);
-        $phpWord->saveAs($output_path);
-        return $output_path;
-
-    } catch (Exception $e) {
-        error_log('Template processing error: ' . $e->getMessage());
-        return new WP_Error('processing_failed', $e->getMessage());
-    }
-}
-*/
-    private function is_image_field($key, $value) {
-       return (
-           (strpos($key, 'qrcode:') === 0 || strpos($key, 'image:') === 0) && 
-           is_string($value) &&
-           file_exists($value) && 
-           preg_match('/\.(png|jpg|jpeg|gif)$/i', $value)
-       );
+    private function get_output_path($provider) {
+        return $provider->get_temp_dir() . '/' . 
+               sanitize_file_name($provider->get_output_filename()) . '.' . 
+               $provider->get_output_format();
     }
 
-    private function process_image($phpWord, $key, $value) {
-       try {
-           $parts = explode(':', $key);
-           $width = isset($parts[2]) ? (int)$parts[2] : 100;
-           $height = isset($parts[3]) ? (int)$parts[3] : $width;
-
-           $phpWord->setImageValue($key, [
-               'path' => $value,
-               'width' => $width,
-               'height' => $height,
-               'ratio' => true
-           ]);
-           error_log("Successfully set image {$key}");
-       } catch (Exception $e) {
-           error_log("Image processing error for {$key}: " . $e->getMessage());
-       }
-    }
-
-   /*
     private function process_template($template_path, $data, $provider) {
         try {
-            // Initialize template processor 
-            $template = new WP_DocGen_Template();
-                        
-            // Initialize PHPWord template processor
             $phpWord = new \PhpOffice\PhpWord\TemplateProcessor($template_path);
+            $processed_data = $this->template->process_fields($phpWord, $data);
 
-            // Process custom fields
-            $processed_data = $template->process_fields($phpWord, $data);
-            
-            // Replace variables in template
             foreach ($processed_data as $key => $value) {
-                if (is_array($value)) {
-                    $phpWord->cloneRowAndSetValues($key, $value);
+                if ($this->is_image_field($key, $value)) {
+                    $this->process_image($phpWord, $key, $value);
                 } else {
                     $phpWord->setValue($key, $value);
                 }
             }
-            
-            // Generate output filename & path
-            $output_filename = $provider->get_output_filename();
-            $output_format = $provider->get_output_format();
-            $output_path = $provider->get_temp_dir() . '/' . 
-                          sanitize_file_name($output_filename) . '.' . $output_format;
 
-            // Save output file
+            $output_path = $this->get_output_path($provider);
             $phpWord->saveAs($output_path);
             return $output_path;
 
-        } catch (\PhpOffice\PhpWord\Exception\Exception $e) {
-            return new WP_Error('template_processing_failed', $e->getMessage());
+        } catch (Exception $e) {
+            error_log('Template processing error: ' . $e->getMessage());
+            return new WP_Error('processing_failed', $e->getMessage());
         }
     }
-    */
 
+    private function is_image_field($key, $value) {
+        return (
+            (strpos($key, 'qrcode:') === 0 || strpos($key, 'image:') === 0) && 
+            is_string($value) &&
+            file_exists($value) && 
+            preg_match('/\.(png|jpg|jpeg|gif)$/i', $value)
+        );
+    }
+
+    private function process_image($phpWord, $key, $value) {
+        try {
+            $parts = explode(':', $key);
+            $type = $parts[0]; // 'image' atau 'qrcode'
+            
+            // Set ukuran dan parameter berdasarkan tipe
+            if ($type === 'image') {
+                $width = isset($parts[2]) ? (int)$parts[2] : 100;
+                $height = isset($parts[3]) ? (int)$parts[3] : $width;
+                
+                $image_params = [
+                    'path' => $value,
+                    'width' => $width,
+                    'height' => $height,
+                    'ratio' => true,
+                    'dpi' => 300
+                ];
+                
+            } else { // qrcode
+                $width = isset($parts[2]) ? (int)$parts[2] : 100;
+                $error_level = isset($parts[3]) ? strtoupper($parts[3]) : 'L';
+                
+                $image_params = [
+                    'path' => $value,
+                    'width' => $width,
+                    'height' => $width, // QR Code selalu square
+                    'ratio' => true,
+                    'dpi' => 300
+                ];
+            }
+
+            // Jika output adalah PDF, tambahkan parameter khusus PDF
+            if ($this->is_pdf_output()) {
+                $image_params = array_merge($image_params, [
+                    'wrappingStyle' => 'inline',
+                    'positioning' => 'relative',
+                    'marginLeft' => 0,
+                    'marginTop' => 0
+                ]);
+            }
+
+            error_log(sprintf(
+                "Processing %s - Key: %s, Path: %s, Params: %s",
+                $type,
+                $key,
+                $value,
+                json_encode($image_params)
+            ));
+
+            $phpWord->setImageValue($key, $image_params);
+            error_log("Successfully set image {$key}");
+            
+        } catch (Exception $e) {
+            error_log("Image processing error for {$key}: " . $e->getMessage());
+        }
+    }
+
+    // Helper untuk cek apakah output adalah PDF
+    private function is_pdf_output() {
+        return (
+            (isset($_POST['format']) && $_POST['format'] === 'pdf') || 
+            (defined('DOING_PDF_CONVERSION') && DOING_PDF_CONVERSION === true)
+        );
+    }
 
    /**
     * Convert document to PDF using PDF converter

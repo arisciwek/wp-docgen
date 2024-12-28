@@ -272,17 +272,17 @@ public function process_fields($phpWord, $data) {
             $cache_dir = $this->get_cache_dir();
 
             foreach ($variables as $variable) {
-                // Skip jika variabel sudah diproses
+                // Skip if already processed
                 if (isset($processed[$variable])) {
                     continue;
                 }
 
                 if (preg_match('/^qrcode:(.*?):(.*?)(?::(.*?))?$/', $variable, $matches)) {
                     $text_key = $matches[1];
-                    $size = (int)$matches[2]; 
+                    $qr_size = (int)$matches[2]; // Requested QR size (50, 75, 100 etc)
                     $error_level = isset($matches[3]) ? strtoupper($matches[3]) : 'L';
 
-                    // Skip jika nilai sudah berupa path file
+                    // Skip if already a file path
                     if (isset($data[$variable]) && strpos($data[$variable], '.png') !== false) {
                         $processed[$variable] = true;
                         continue;
@@ -291,14 +291,22 @@ public function process_fields($phpWord, $data) {
                     $text = isset($data[$text_key]) ? $data[$text_key] : '';
                     if (empty($text)) continue;
 
-                    $cache_key = md5($text . $size . $error_level);
+                    $cache_key = md5($text . $qr_size . $error_level);
                     $cache_file = $cache_dir . '/' . $cache_key . '.png';
 
                     if (!file_exists($cache_file)) {
-                        QRcode::png($text, $cache_file, $error_level, (int)($size/10), 2);
+                        // Generate QR with precise pixel size
+                        QRcode::png(
+                            $text, 
+                            $cache_file, 
+                            $error_level,
+                            1,              // Unit size of 1
+                            $qr_size/10    // Pixel multiplier based on requested size
+                        );
                     }
 
                     if (file_exists($cache_file)) {
+                        // Store just the path - this is compatible with PHPWord's expectations
                         $data[$variable] = $cache_file;
                         $processed[$variable] = true;
                     }
@@ -310,101 +318,6 @@ public function process_fields($phpWord, $data) {
             return $data;
         }
     }
-
-/*
-    private function process_qrcode_field($phpWord, $data) {
-        error_log('=== START QR CODE IMAGE PROCESSING ===');
-        error_log('Processing QR code with data: ' . print_r($data, true));
-
-        // Check QR library
-        $qr_lib_path = WP_DOCGEN_DIR . 'libs/phpqrcode/qrlib.php';
-        error_log('Looking for QR library at: ' . $qr_lib_path);
-        
-        if (!file_exists($qr_lib_path)) {
-            error_log('QR Library not found!');
-            return $data;
-        }
-        
-        require_once $qr_lib_path;
-
-        // Get template content
-        $template = $phpWord->getMainPart()->getContent();
-        
-        // Find placeholders
-        preg_match_all('/\$\{qrcode:(.*?):(.*?)(?::(.*?))?\}/', $template, $matches);
-        error_log('Found QR code placeholders: ' . print_r($matches, true));
-        
-        foreach ($matches[1] as $key => $text_key) {
-            try {
-                $placeholder = $matches[0][$key];
-                error_log("Processing placeholder: {$placeholder}");
-                
-                $size = min(max((int)$matches[2][$key], 50), 500);
-                $error_level = isset($matches[3][$key]) ? $matches[3][$key] : 'L';
-                error_log("QR Code size: {$size}, Error level: {$error_level}");
-                
-                // Get text from data array
-                $text = isset($data[$text_key]) ? $data[$text_key] : '';
-                error_log("QR Code content text: {$text}");
-                
-                if (empty($text)) {
-                    error_log("Error: No text found for key: {$text_key}");
-                    continue;
-                }
-
-                // Setup cache
-                $cache_dir = $this->get_cache_dir();
-                $cache_key = md5($text . $size . $error_level);
-                $cache_file = $cache_dir . '/' . $cache_key . '.png';
-                
-                error_log('Cache directory: ' . $cache_dir);
-                error_log('Cache file path: ' . $cache_file);
-
-                // Generate QR code if not cached
-                if (!file_exists($cache_file)) {
-                    error_log('Cache file not found, generating new QR code...');
-                    
-                    // Generate QR code
-                    try {
-                        QRcode::png($text, $cache_file, $error_level, $size/25, 2);
-                        error_log('QR Code generated successfully at: ' . $cache_file);
-                        
-                        // Verify file
-                        if (file_exists($cache_file)) {
-                            $filesize = filesize($cache_file);
-                            $perms = substr(sprintf('%o', fileperms($cache_file)), -4);
-                            error_log("Generated file details - Size: {$filesize} bytes, Permissions: {$perms}");
-                        }
-                    } catch (Exception $e) {
-                        error_log('QR Code generation failed: ' . $e->getMessage());
-                        continue;
-                    }
-                } else {
-                    error_log('Using cached QR code from: ' . $cache_file);
-                }
-
-                if (file_exists($cache_file)) {
-                    $data[$placeholder] = [
-                        'path' => $cache_file,
-                        'width' => $size,
-                        'height' => $size
-                    ];
-                    error_log('QR Code data set in template: ' . print_r($data[$placeholder], true));
-                } else {
-                    error_log('Error: Generated QR code file not found!');
-                }
-
-            } catch (Exception $e) {
-                error_log('QR Code Processing Error: ' . $e->getMessage());
-                error_log('Error Stack Trace: ' . $e->getTraceAsString());
-            }
-        }
-
-        error_log('=== END QR CODE IMAGE PROCESSING ===');
-        return $data;
-    }
-*/
-
 
     /**
      * Get temporary directory

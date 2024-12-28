@@ -159,6 +159,75 @@ private function get_output_path($provider) {
 private function process_template($template_path, $data, $provider) {
     try {
         $phpWord = new \PhpOffice\PhpWord\TemplateProcessor($template_path);
+        
+        // Proses fields melalui template processor
+        $processed_data = $this->template->process_fields($phpWord, $data);
+        
+        foreach ($processed_data as $key => $value) {
+            // Cek apakah ini adalah image field
+            if (strpos($key, 'image:') === 0) {
+                // Pastikan file exists dan readable
+                if (file_exists($value) && is_readable($value)) {
+                    // Extract dimensi dari key (format: image:name:width:height)
+                    $parts = explode(':', $key);
+                    $width = isset($parts[2]) ? (int)$parts[2] : 100;
+                    $height = isset($parts[3]) ? (int)$parts[3] : $width;
+                    
+                    // Set image dengan dimensi
+                    $phpWord->setImageValue($key, array(
+                        'path' => $value,
+                        'width' => $width,
+                        'height' => $height,
+                        'ratio' => true
+                    ));
+                    
+                    error_log("Setting image value for {$key} with path: {$value}");
+                } else {
+                    error_log("Image file not found or not readable: {$value}");
+                }
+            }
+            // Cek apakah ini adalah QR code field
+            else if (strpos($key, 'qrcode:') === 0) {
+                if (file_exists($value) && is_readable($value)) {
+                    // Extract dimensi dari key (format: qrcode:text:size)
+                    $parts = explode(':', $key);
+                    $size = isset($parts[2]) ? (int)$parts[2] : 100;
+                    
+                    // Set QR code sebagai image
+                    $phpWord->setImageValue($key, array(
+                        'path' => $value,
+                        'width' => $size,
+                        'height' => $size,
+                        'ratio' => true
+                    ));
+                    
+                    error_log("Setting QR code value for {$key} with path: {$value}");
+                } else {
+                    error_log("QR code file not found or not readable: {$value}");
+                }
+            }
+            // Jika bukan image atau QR code, proses sebagai value biasa
+            else {
+                $phpWord->setValue($key, $value);
+            }
+        }
+
+        // Generate output path dan simpan
+        $output_path = $this->get_output_path($provider);
+        $phpWord->saveAs($output_path);
+        
+        return $output_path;
+
+    } catch (Exception $e) {
+        error_log('Template processing error: ' . $e->getMessage());
+        return new WP_Error('processing_failed', $e->getMessage());
+    }
+}
+/*
+
+private function process_template($template_path, $data, $provider) {
+    try {
+        $phpWord = new \PhpOffice\PhpWord\TemplateProcessor($template_path);
         $processed_data = $this->template->process_fields($phpWord, $data);
 
         foreach ($processed_data as $key => $value) {
@@ -178,7 +247,7 @@ private function process_template($template_path, $data, $provider) {
         return new WP_Error('processing_failed', $e->getMessage());
     }
 }
-
+*/
     private function is_image_field($key, $value) {
        return (
            (strpos($key, 'qrcode:') === 0 || strpos($key, 'image:') === 0) && 
